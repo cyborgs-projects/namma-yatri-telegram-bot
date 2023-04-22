@@ -1,14 +1,27 @@
 # namma-yatri-telegram-bot
 
-### on windows
-
-add BOT_TOKEN to environment variables
-
-### on windows
-
-add following to .env file and run below command
-export BOT_TOKEN=6154804837:AAHSO9tY0DCv7Ihwg2FQyD9GWmjNQ4odLRs
+### install packages
 
 ```
-source .env
+pip install -r requirements.txt
+```
+
+### run the bot
+
+```
+python bot.py
+```
+
+### note
+
+#### install pigar to automatically generate requirements.txt
+
+```
+pip install pigar
+```
+
+#### generate requirements.txt for current directory
+
+```
+pigar generate
 ```

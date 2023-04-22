@@ -1,5 +1,4 @@
-import logging
-from telegram import Update
+from dotenv import load_dotenv
 from telegram.ext import (
     filters,
     MessageHandler,
@@ -7,18 +6,10 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
 )
-
-from dotenv import load_dotenv
-
-load_dotenv()
+from telegram import Update
 import os
-
+load_dotenv()
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -37,6 +28,8 @@ async def caps(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 if __name__ == "__main__":
+    print("Bot is running")
+
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     start_handler = CommandHandler("start", start)
