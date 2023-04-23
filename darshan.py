@@ -269,17 +269,8 @@ def main() -> None:
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            CHOOSING: [],
             BOOK_CAB: [CommandHandler("book_cab", book_cab)],
-            PHOTO: [
-                MessageHandler(filters.PHOTO, photo),
-                CommandHandler("skip", skip_photo),
-            ],
-            LOCATION: [
-                MessageHandler(filters.LOCATION, location),
-                CommandHandler("skip", skip_location),
-            ],
-            BIO: [MessageHandler(filters.TEXT & ~filters.COMMAND, bio)],
+
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
