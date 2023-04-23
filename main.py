@@ -9,6 +9,14 @@ from telegram.ext import (
 )
 from telegram import Update
 
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import (
+    Updater,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    CallbackContext,
+)
 
 load_dotenv()
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -33,6 +41,27 @@ You can enter following commands:
     await context.bot.send_message(chat_id=update.effective_chat.id, text=menu_text)
 
 
+async def sendSource(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    menu_text = """
+    Hi there! To help you find what you're looking for, can you please share your location with me? You can either type your address or share your current location by clicking on the paperclip icon and selecting "Location". Thank you!
+    """
+    # Create a keyboard with the "Share Location" button
+    keyboard = KeyboardButton(text="Share Location", request_location=True)
+    reply_markup = ReplyKeyboardMarkup([[keyboard]], resize_keyboard=True)
+
+    # Create a keyboard with the "Share Location" button
+    keyboard = KeyboardButton(text="Share Location", request_location=True)
+    reply_markup = ReplyKeyboardMarkup([[keyboard]], resize_keyboard=True)
+
+    # Send a message to the user with the keyboard
+    update.message.reply_text(
+        "Please share your location with me",
+        reply_markup=reply_markup
+    )
+
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=menu_text)
+
+
 def main():
     print("Bot is running")
 
@@ -40,6 +69,8 @@ def main():
 
     start_handler = CommandHandler("start", start)
     application.add_handler(start_handler)
+    sourceLocation_handler = CommandHandler("sendSource", sendSource)
+    application.add_handler(sourceLocation_handler)
 
     application.run_polling()
 
