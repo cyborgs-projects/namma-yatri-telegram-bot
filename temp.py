@@ -1,29 +1,46 @@
+#!/usr/bin/env python
+# pylint: disable=unused-argument, wrong-import-position
+# This program is dedicated to the public domain under the CC0 license.
+
+"""
+First, a few callback functions are defined. Then, those functions are passed to
+the Application and registered at their respective places.
+Then, the bot is started and runs until we press Ctrl-C on the command line.
+
+Usage:
+Example of a bot-user conversation using nested ConversationHandlers.
+Send /start to initiate the conversation.
+Press Ctrl-C on the command line or send a signal to the process to stop the
+bot.
+"""
+
 import logging
+from typing import Any, Dict, Tuple
+
 import os
 from dotenv import load_dotenv
-from telegram import __version__ as TG_VER
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-import sqlite3
-from telegram import Update, User
-from telegram.ext import CallbackQueryHandler
+# import requests
 
 load_dotenv()
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
+
+from telegram import __version__ as TG_VER
+
 try:
     from telegram import __version_info__
 except ImportError:
     __version_info__ = (0, 0, 0, 0, 0)  # type: ignore[assignment]
 
-if __version_info__ < (20, 0, 0, "alpha", 5):
+if __version_info__ < (20, 0, 0, "alpha", 1):
     raise RuntimeError(
         f"This example is not compatible with your current PTB version {TG_VER}. To view the "
         f"{TG_VER} version of this example, "
         f"visit https://docs.python-telegram-bot.org/en/v{TG_VER}/examples.html"
     )
-
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     ConversationHandler,
@@ -37,190 +54,349 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-CHOOSING, BOOK_A_CAB, PHOTO, LOCATION, BIO = range(5)
+# State definitions for top level conversation
+SELECTING_ACTION, ADDING_MEMBER, ADDING_SELF, DESCRIBING_SELF = map(chr, range(4))
+# State definitions for second level conversation
+SELECTING_LEVEL, SELECTING_GENDER = map(chr, range(4, 6))
+# State definitions for descriptions conversation
+SELECTING_FEATURE, TYPING = map(chr, range(6, 8))
+# Meta states
+STOPPING, SHOWING = map(chr, range(8, 10))
+# Shortcut for ConversationHandler.END
+END = ConversationHandler.END
+
+# Different constants for this example
+(
+    PARENTS,
+    CHILDREN,
+    SELF,
+    GENDER,
+    MALE,
+    FEMALE,
+    AGE,
+    NAME,
+    START_OVER,
+    FEATURES,
+    CURRENT_FEATURE,
+    CURRENT_LEVEL,
+) = map(chr, range(10, 22))
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    keyboard = [
+# Helper
+def _name_switcher(level: str) -> Tuple[str, str]:
+    if level == PARENTS:
+        return "Father", "Mother"
+    return "Brother", "Sister"
+
+
+# Top level conversation callbacks
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Select an action: Adding parent/child or show data."""
+    text = (
+        "You may choose to add a family member, yourself, show the gathered data, or end the "
+        "conversation. To abort, simply type /stop."
+    )
+
+    buttons = [
         [
-            InlineKeyboardButton("Book a cab", callback_data="book_a_cab"),
-            InlineKeyboardButton(
-                "View booking history", callback_data="view_booking_history"
-            ),
+            InlineKeyboardButton(text="Add family member", callback_data=str(ADDING_MEMBER)),
+            InlineKeyboardButton(text="Add yourself", callback_data=str(ADDING_SELF)),
         ],
         [
-            InlineKeyboardButton("Cancel a booking", callback_data="cancel_a_booking"),
-            InlineKeyboardButton("Get help", callback_data="get_help"),
-        ],
-        [
-            InlineKeyboardButton("Update profile", callback_data="update_profile"),
+            InlineKeyboardButton(text="Show data", callback_data=str(SHOWING)),
+            InlineKeyboardButton(text="Done", callback_data=str(END)),
         ],
     ]
+    keyboard = InlineKeyboardMarkup(buttons)
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    # If we're starting over we don't need to send a new message
+    if context.user_data.get(START_OVER):
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
+    else:
+        await update.message.reply_text(
+            "Hi, I'm Family Bot and I'm here to help you gather information about your family."
+        )
+        await update.message.reply_text(text=text, reply_markup=keyboard)
 
-    await update.message.reply_text(
-        """Welcome aboard! 🎉🚕🌟
-
-At Namma Yatri 🚕, we believe that your journey should be as enjoyable as your destination. That's why we offer a hassle-free online cab booking experience that is safe, reliable and affordable. 💰💺
-
-With our Telegram bot 🤖, you can book a ride in just a few clicks. Simply send us a message and our team of friendly bots will take care of the rest! 🤖🚗💨
-
-Our experienced and courteous drivers will ensure that you reach your destination on time, every time. 🚕🌟 And with our comfortable, air-conditioned cabs, you can sit back, relax and enjoy the ride! 😎🚘
-
-So why wait? Book your ride with Namma Yatri today and experience the joy of hassle-free travel! 🌟🌟🌟""",
-        reply_markup=reply_markup,
-    )
-
-
-def updateDataBase(user_id, pickup_location, drop_location, ride_date, fare):
-    conn = sqlite3.connect("ride_history.db")
-    c = conn.cursor()
-    c.execute(
-        """CREATE TABLE IF NOT EXISTS RIDE_HISTORY
-                 (ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                  USER_ID INT NOT NULL,
-                  PICKUP_LOCATION TEXT NOT NULL,
-                  DROP_LOCATION TEXT NOT NULL,
-                  RIDE_DATE TEXT NOT NULL,
-                  FARE INT NOT NULL);"""
-    )
-    data = {
-        "user_id": user_id,
-        "pickup_location": pickup_location,
-        "drop_location": drop_location,
-        "ride_date": ride_date,
-        "fare": fare,
-    }
-
-    conn.execute(
-        "INSERT INTO RIDE_HISTORY (USER_ID, PICKUP_LOCATION, DROP_LOCATION, RIDE_DATE, FARE) \
-              VALUES (:user_id, :pickup_location, :drop_location, :ride_date, :fare)",
-        data,
-    )
-
-    conn.commit()
-    conn.close()
+    context.user_data[START_OVER] = False
+    return SELECTING_ACTION
 
 
-async def getRideData(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user: User = update.message.from_user
-    userID = user.username
-    conn = sqlite3.connect("ride_history.db")
-    c = conn.cursor()
-    c.execute("SELECT * FROM RIDE_HISTORY WHERE USER_ID=?", (userID))
-    rides = c.fetchall()
+async def adding_self(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Add information about yourself."""
+    context.user_data[CURRENT_LEVEL] = SELF
+    text = "Okay, please tell me about yourself."
+    button = InlineKeyboardButton(text="Add info", callback_data=str(MALE))
+    keyboard = InlineKeyboardMarkup.from_button(button)
 
-    if not rides:
-        update.message.reply_text("You have no ride history.")
-        return
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
 
-    output_message = "Here's your ride history with Namma Yatri! 🚗💨\n\n"
-
-    for i, ride in enumerate(rides):
-        ride_number = i + 1
-        pickup_location = ride[2]
-        drop_location = ride[3]
-        ride_date = ride[4]
-        fare = ride[5]
-
-        output_message += f"- Ride #{ride_number}:\n"
-        output_message += f"   Pickup location: {pickup_location}\n"
-        output_message += f"   Drop location: {drop_location}\n"
-        output_message += f"   Ride date: {ride_date}\n"
-        output_message += f"   Fare: ${fare}\n\n"
-
-    output_message += "Thank you for choosing Namma Yatri! 😊"
-
-    await update.message.reply_text(output_message)
+    return DESCRIBING_SELF
 
 
-async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Stores the photo and asks for a location."""
-    user = update.message.from_user
-    photo_file = await update.message.photo[-1].get_file()
-    await photo_file.download_to_drive("user_photo.jpg")
-    logger.info("Photo of %s: %s", user.first_name, "user_photo.jpg")
-    await update.message.reply_text(
-        "Gorgeous! Now, send me your location please, or send /skip if you don't want to."
-    )
-    return LOCATION
+async def show_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Pretty print gathered data."""
+
+    def pretty_print(data: Dict[str, Any], level: str) -> str:
+        people = data.get(level)
+        if not people:
+            return "\nNo information yet."
+
+        return_str = ""
+        if level == SELF:
+            for person in data[level]:
+                return_str += f"\nName: {person.get(NAME, '-')}, Age: {person.get(AGE, '-')}"
+        else:
+            male, female = _name_switcher(level)
+
+            for person in data[level]:
+                gender = female if person[GENDER] == FEMALE else male
+                return_str += (
+                    f"\n{gender}: Name: {person.get(NAME, '-')}, Age: {person.get(AGE, '-')}"
+                )
+        return return_str
+
+    user_data = context.user_data
+    text = f"Yourself:{pretty_print(user_data, SELF)}"
+    text += f"\n\nParents:{pretty_print(user_data, PARENTS)}"
+    text += f"\n\nChildren:{pretty_print(user_data, CHILDREN)}"
+
+    buttons = [[InlineKeyboardButton(text="Back", callback_data=str(END))]]
+    keyboard = InlineKeyboardMarkup(buttons)
+
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
+    user_data[START_OVER] = True
+
+    return SHOWING
 
 
-async def skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Skips the photo and asks for a location."""
-    user = update.message.from_user
-    logger.info("User %s did not send a photo.", user.first_name)
-    await update.message.reply_text(
-        "I bet you look great! Now, send me your location please, or send /skip."
-    )
+async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """End Conversation by command."""
+    await update.message.reply_text("Okay, bye.")
 
-    return LOCATION
+    return END
 
 
-async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Stores the location and asks for some info about the user."""
-    user = update.message.from_user
-    user_location = update.message.location
-    logger.info(
-        "Location of %s: %f / %f",
-        user.first_name,
-        user_location.latitude,
-        user_location.longitude,
-    )
-    await update.message.reply_text(
-        "Maybe I can visit you sometime! At last, tell me something about yourself."
-    )
-    return BIO
+async def end(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """End conversation from InlineKeyboardButton."""
+    await update.callback_query.answer()
+
+    text = "See you around!"
+    await update.callback_query.edit_message_text(text=text)
+
+    return END
 
 
-async def skip_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Skips the location and asks for info about the user."""
-    user = update.message.from_user
-    logger.info("User %s did not send a location.", user.first_name)
-    await update.message.reply_text(
-        "You seem a bit paranoid! At last, tell me something about yourself."
-    )
-    return BIO
+# Second level conversation callbacks
+async def select_level(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Choose to add a parent or a child."""
+    text = "You may add a parent or a child. Also you can show the gathered data or go back."
+    buttons = [
+        [
+            InlineKeyboardButton(text="Add parent", callback_data=str(PARENTS)),
+            InlineKeyboardButton(text="Add child", callback_data=str(CHILDREN)),
+        ],
+        [
+            InlineKeyboardButton(text="Show data", callback_data=str(SHOWING)),
+            InlineKeyboardButton(text="Back", callback_data=str(END)),
+        ],
+    ]
+    keyboard = InlineKeyboardMarkup(buttons)
+
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
+
+    return SELECTING_LEVEL
 
 
-async def bio(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Stores the info about the user and ends the conversation."""
-    user = update.message.from_user
-    logger.info("Bio of %s: %s", user.first_name, update.message.text)
-    await update.message.reply_text("Thank you! I hope we can talk again some day.")
+async def select_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Choose to add mother or father."""
+    level = update.callback_query.data
+    context.user_data[CURRENT_LEVEL] = level
 
-    return ConversationHandler.END
+    text = "Please choose, whom to add."
+
+    male, female = _name_switcher(level)
+
+    buttons = [
+        [
+            InlineKeyboardButton(text=f"Add {male}", callback_data=str(MALE)),
+            InlineKeyboardButton(text=f"Add {female}", callback_data=str(FEMALE)),
+        ],
+        [
+            InlineKeyboardButton(text="Show data", callback_data=str(SHOWING)),
+            InlineKeyboardButton(text="Back", callback_data=str(END)),
+        ],
+    ]
+    keyboard = InlineKeyboardMarkup(buttons)
+
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
+
+    return SELECTING_GENDER
 
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Cancels and ends the conversation."""
-    user = update.message.from_user
-    logger.info("User %s canceled the conversation.", user.first_name)
-    await update.message.reply_text(
-        "Bye! I hope we can talk again some day.", reply_markup=ReplyKeyboardRemove()
-    )
+async def end_second_level(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Return to top level conversation."""
+    context.user_data[START_OVER] = True
+    await start(update, context)
 
-    return ConversationHandler.END
+    return END
 
 
-async def book_cab(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Thank You!")
-    return ConversationHandler.END
+# Third level callbacks
+async def select_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Select a feature to update for the person."""
+    buttons = [
+        [
+            InlineKeyboardButton(text="Name", callback_data=str(NAME)),
+            InlineKeyboardButton(text="Age", callback_data=str(AGE)),
+            InlineKeyboardButton(text="Done", callback_data=str(END)),
+        ]
+    ]
+    keyboard = InlineKeyboardMarkup(buttons)
+
+    # If we collect features for a new person, clear the cache and save the gender
+    if not context.user_data.get(START_OVER):
+        context.user_data[FEATURES] = {GENDER: update.callback_query.data}
+        text = "Please select a feature to update."
+
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
+    # But after we do that, we need to send a new message
+    else:
+        text = "Got it! Please select a feature to update."
+        await update.message.reply_text(text=text, reply_markup=keyboard)
+
+    context.user_data[START_OVER] = False
+    return SELECTING_FEATURE
 
 
-async def get_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ask_for_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Prompt user to input data for selected feature."""
+    context.user_data[CURRENT_FEATURE] = update.callback_query.data
+    text = "Okay, tell me."
 
-    help_text = "Need some help? No worries! Our 🤖bot is here to assist you. Simply type /help to see a list of available commands. If you need further assistance, feel free to reach out to our 📞customer support team at support@ourcompany.com or send us a message on our 📱social media channels. We're always happy to help!"
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text(text=text)
 
-    await update.message.reply_text(help_text)
+    return TYPING
+
+
+async def save_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Save input for feature and return to feature selection."""
+    user_data = context.user_data
+    user_data[FEATURES][user_data[CURRENT_FEATURE]] = update.message.text
+
+    user_data[START_OVER] = True
+
+    return await select_feature(update, context)
+
+
+async def end_describing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """End gathering of features and return to parent conversation."""
+    user_data = context.user_data
+    level = user_data[CURRENT_LEVEL]
+    if not user_data.get(level):
+        user_data[level] = []
+    user_data[level].append(user_data[FEATURES])
+
+    # Print upper level menu
+    if level == SELF:
+        user_data[START_OVER] = True
+        await start(update, context)
+    else:
+        await select_level(update, context)
+
+    return END
+
+
+async def stop_nested(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Completely end conversation from within nested conversation."""
+    await update.message.reply_text("Okay, bye.")
+
+    return STOPPING
 
 
 def main() -> None:
     """Run the bot."""
-
     # Create the Application and pass it your bot's token.
     application = Application.builder().token(BOT_TOKEN).build()
+
+    # Set up third level ConversationHandler (collecting features)
+    description_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(
+                select_feature, pattern="^" + str(MALE) + "$|^" + str(FEMALE) + "$"
+            )
+        ],
+        states={
+            SELECTING_FEATURE: [
+                CallbackQueryHandler(ask_for_input, pattern="^(?!" + str(END) + ").*$")
+            ],
+            TYPING: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_input)],
+        },
+        fallbacks=[
+            CallbackQueryHandler(end_describing, pattern="^" + str(END) + "$"),
+            CommandHandler("stop", stop_nested),
+        ],
+        map_to_parent={
+            # Return to second level menu
+            END: SELECTING_LEVEL,
+            # End conversation altogether
+            STOPPING: STOPPING,
+        },
+    )
+
+    # Set up second level ConversationHandler (adding a person)
+    add_member_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(select_level, pattern="^" + str(ADDING_MEMBER) + "$")],
+        states={
+            SELECTING_LEVEL: [
+                CallbackQueryHandler(select_gender, pattern=f"^{PARENTS}$|^{CHILDREN}$")
+            ],
+            SELECTING_GENDER: [description_conv],
+        },
+        fallbacks=[
+            CallbackQueryHandler(show_data, pattern="^" + str(SHOWING) + "$"),
+            CallbackQueryHandler(end_second_level, pattern="^" + str(END) + "$"),
+            CommandHandler("stop", stop_nested),
+        ],
+        map_to_parent={
+            # After showing data return to top level menu
+            SHOWING: SHOWING,
+            # Return to top level menu
+            END: SELECTING_ACTION,
+            # End conversation altogether
+            STOPPING: END,
+        },
+    )
+
+    # Set up top level ConversationHandler (selecting action)
+    # Because the states of the third level conversation map to the ones of the second level
+    # conversation, we need to make sure the top level conversation can also handle them
+    selection_handlers = [
+        add_member_conv,
+        CallbackQueryHandler(show_data, pattern="^" + str(SHOWING) + "$"),
+        CallbackQueryHandler(adding_self, pattern="^" + str(ADDING_SELF) + "$"),
+        CallbackQueryHandler(end, pattern="^" + str(END) + "$"),
+    ]
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            SHOWING: [CallbackQueryHandler(start, pattern="^" + str(END) + "$")],
+            SELECTING_ACTION: selection_handlers,
+            SELECTING_LEVEL: selection_handlers,
+            DESCRIBING_SELF: [description_conv],
+            STOPPING: [CommandHandler("start", start)],
+        },
+        fallbacks=[CommandHandler("stop", stop)],
+    )
+
+    application.add_handler(conv_handler)
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling()

@@ -166,6 +166,8 @@ So why wait? Book your ride with Namma Yatri today and experience the joy of has
         reply_markup=reply_markup,
     )
 
+    
+
 
 async def book_cab(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the selected service and asks for destination location"""
@@ -238,30 +240,24 @@ async def book_cab(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # logger.info("Requested service %s: %s", user.first_name, update.message.text)
 
 
+
+
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Now send destination location",
     )
 
+    return DESTINATION
 
 
+
+
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Parses the CallbackQuery and updates the message text."""
     query = update.callback_query
-
-    # CallbackQueries need to be answered, even if no notification to the user is needed
-    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     await query.answer()
-
     await query.edit_message_text(text=f"Selected option: {query.data}")
 
-    print()
-    print()
-
-    print(query.data)
-
-    print()
-    print()
-
-    return DESTINATION
 
 
 '''
@@ -279,21 +275,12 @@ async def book_cab(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 '''
 
 
+
+
+
+
 async def destination(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the selected destination and asks for pick-up location"""
-
-
-    print("")
-    print("")
-    print("here")
-    print("")
-    print("")
-
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="here",
-    )
-
     user = update.message.from_user
     user_location = update.message.location
     logger.info(
@@ -516,13 +503,15 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     return ConversationHandler.END
 
-
 def main() -> None:
     """Run the bot."""
     # Create the Application and pass it your bot's token.
     application = Application.builder().token(BOT_TOKEN).build()
 
     # Add main handler
+
+    # Add booking handler
+
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
@@ -530,15 +519,6 @@ def main() -> None:
             VIEW_BOOKING_HISTORY: [CommandHandler("view_booking_history", view_booking_history)],
             SETTINGS: [CommandHandler("settings", settings)],
             GET_HELP: [CommandHandler("get_help", get_help)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-    )
-    application.add_handler(conv_handler)
-
-    # Add booking handler
-    booking_handler = ConversationHandler(
-        entry_points=[CommandHandler("book_cab", book_cab)],
-        states={
             DESTINATION: [MessageHandler(filters.LOCATION, destination)],
             SOURCE: [MessageHandler(filters.LOCATION, source)],
             VEHICLE: [
@@ -552,20 +532,29 @@ def main() -> None:
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
+
     )
-    application.add_handler(booking_handler)
+    application.add_handler(conv_handler)
 
-
-
+    # booking_handler = ConversationHandler(
+    #     entry_points=[CommandHandler("book_cab", book_cab,Update)],
+    #     states={
+            
+    #     },
+    #     fallbacks=[CommandHandler("cancel", cancel)],
+    # )
+    # application.add_handler(booking_handler)
     # callback
-    application.add_handler(CallbackQueryHandler(book_cab, pattern="book_cab"))
-    application.add_handler(
-        CallbackQueryHandler(view_booking_history, pattern="view_booking_history")
-    )
-    application.add_handler(
-        CallbackQueryHandler(cancel_booking, pattern="cancel_booking")
-    )
-    application.add_handler(CallbackQueryHandler(get_help, pattern="get_help"))
+    # application.add_handler(CallbackQueryHandler(button))
+
+    # application.add_handler(CallbackQueryHandler(book_cab, pattern="book_cab"))
+    # application.add_handler(
+    #     CallbackQueryHandler(view_booking_history, pattern="view_booking_history")
+    # )
+    # application.add_handler(
+    #     CallbackQueryHandler(cancel_booking, pattern="cancel_booking")
+    # )
+    # application.add_handler(CallbackQueryHandler(get_help, pattern="get_help"))
     application.run_polling()
 
 

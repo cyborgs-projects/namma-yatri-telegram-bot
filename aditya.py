@@ -59,16 +59,6 @@ logger = logging.getLogger(__name__)
 BOOKING_DETAILS = {}
 
 
-
-
-
-
-
-
-
-
-
-
 def defineTable():
     conn = sqlite3.connect("ride_history.db")
     c = conn.cursor()
@@ -115,17 +105,6 @@ def updateDataBase(user_id, pickup_location, drop_location, ride_date, fare):
     conn.close()
 
 
-
-
-
-
-
-
-
-
-
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     keyboard = [
         [
@@ -142,12 +121,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    keyboard.append(InlineKeyboardButton("a", callback_data="/help"))
+
+
     # user = update.message.from_user
 
     # logger.info("%s started chat", user.first_name)
-
-
-
 
     MSG_MAIN_MENU = """Welcome aboard! 🎉🚕🌟
 
@@ -159,7 +138,6 @@ Our experienced and courteous drivers will ensure that you reach your destinatio
 
 So why wait? Book your ride with Namma Yatri today and experience the joy of hassle-free travel! 🌟🌟🌟"""
 
-
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=MSG_MAIN_MENU,
@@ -167,10 +145,53 @@ So why wait? Book your ride with Namma Yatri today and experience the joy of has
     )
 
 
+
+
+
+async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print()
+    print()
+    print(input)
+    print()
+    print()
+    # process input
+    input = update.callback_query.data
+    # invoke handler
+    if input == '/help':
+        help_command_handler(update, context)  
+
+
+
+
+
+
+async def help_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Stores the source ans ends conversation"""
+
+    await update.message.reply_text(
+        "Hi!" "Send /cancel to stop booking.\n\n" "Select vehicle to book."
+    )
+
+    return VEHICLE
+
+
+
+# def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#    # process input
+#    input = update.callback_query.data
+#    print(input)
+#    # invoke handler
+#    if input == '/book_cab':
+#        book_cab(update, context)  
+
+
+
+
+
 async def book_cab(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the selected service and asks for destination location"""
 
-    '''
+    """
     Update(
         callback_query=CallbackQuery(
             chat_instance='-1377679089346078440',
@@ -231,19 +252,15 @@ async def book_cab(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 text="Welcome aboard! 🎉🚕🌟\n\nAt Namma Yatri 🚕, we believe that your journey should be as enjoyable as your destination. That's why we offer a hassle-free online cab booking experience that is safe, reliable and affordable. 💰💺\n\nWith our Telegram bot 🤖, you can book a ride in just a few clicks. Simply send us a message and our team of friendly bots will take care of the rest! 🤖🚗💨\n\nOur experienced and courteous drivers will ensure that you reach your destination on time, every time. 🚕🌟 And with our comfortable, air-conditioned cabs, you can sit back, relax and enjoy the ride! 😎🚘\n\nSo why wait? Book your ride with Namma Yatri today and experience the joy of hassle-free travel! 🌟🌟🌟"
             )
         ), update_id=720656082
-    '''
-
+    """
 
     # user = update.message.from_user
     # logger.info("Requested service %s: %s", user.first_name, update.message.text)
-
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Now send destination location",
     )
-
-
 
     query = update.callback_query
 
@@ -261,7 +278,7 @@ async def book_cab(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     print()
     print()
 
-    return DESTINATION
+    return CommandHandler("book_cab", book_cab)
 
 
 '''
@@ -281,7 +298,6 @@ async def book_cab(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def destination(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the selected destination and asks for pick-up location"""
-
 
     print("")
     print("")
@@ -430,15 +446,9 @@ You have selected Cash mode. Pay the driver once you reach your destination.
         )
 
 
-
 async def cancel_booking(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("cancel")
     return ConversationHandler.END
-
-
-
-
-
 
 
 async def view_booking_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -481,13 +491,8 @@ async def view_booking_history(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
 
-
-
-
 async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Different options (change language, phoneno)"""
-    
-
 
 
 async def get_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -502,8 +507,6 @@ If you need further assistance, feel free to reach out to our 📞customer suppo
 We're always happy to help!
     """
     await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text)
-
-
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -527,20 +530,8 @@ def main() -> None:
         entry_points=[CommandHandler("start", start)],
         states={
             BOOK_CAB: [CommandHandler("book_cab", book_cab)],
-            VIEW_BOOKING_HISTORY: [CommandHandler("view_booking_history", view_booking_history)],
-            SETTINGS: [CommandHandler("settings", settings)],
-            GET_HELP: [CommandHandler("get_help", get_help)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-    )
-    application.add_handler(conv_handler)
-
-    # Add booking handler
-    booking_handler = ConversationHandler(
-        entry_points=[CommandHandler("book_cab", book_cab)],
-        states={
-            DESTINATION: [MessageHandler(filters.LOCATION, destination)],
-            SOURCE: [MessageHandler(filters.LOCATION, source)],
+            DESTINATION: [MessageHandler(filters._All, destination)],
+            SOURCE: [MessageHandler(filters._All, source)],
             VEHICLE: [
                 MessageHandler(filters.Regex("^(Auto|Mini|Sedan|SUV)$"), vehicle)
             ],
@@ -550,12 +541,15 @@ def main() -> None:
             PAYMENT: [
                 MessageHandler(filters.Regex("^(Cash|Online)$"), payment),
             ],
+            VIEW_BOOKING_HISTORY: [
+                CommandHandler("view_booking_history", view_booking_history)
+            ],
+            SETTINGS: [CommandHandler("settings", settings)],
+            GET_HELP: [CommandHandler("get_help", get_help)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
-    application.add_handler(booking_handler)
-
-
+    application.add_handler(conv_handler)
 
     # callback
     application.add_handler(CallbackQueryHandler(book_cab, pattern="book_cab"))

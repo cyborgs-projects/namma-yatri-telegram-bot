@@ -61,7 +61,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     return SERVICE
 
-
+'''
 async def service(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the selected service and asks for destination location"""
     user = update.message.from_user
@@ -100,7 +100,7 @@ async def source(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
 
     return ConversationHandler.END
-
+'''
 async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Different options (change language, phoneno)"""
     
