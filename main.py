@@ -1,286 +1,325 @@
-'''
-from telegram.ext import (
-    ApplicationBuilder,
-    ContextTypes,
-    CommandHandler,
-    MessageHandler,
-    filters,
-)
-from telegram import Update, ReplyKeyboardMarkup
-
-
-
-load_dotenv()
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    menu_text = """
-Hello there!
-
-Booking an auto now got simpler. Just send a message here to book an auto.
-
-You can enter following commands:
-
-/start - Display Main Menu
-/book - Book an Auto
-/about - About Us
-/help - Get help for Booking
-    """
-
-    # print(menu_text)
-
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=menu_text)
-
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    book.book()
-
-
-async def get_vehicle(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    reply_keyboard = [["Boy", "Girl", "Other"]]
-
-    await update.message.reply_text(
-        "Hi! My name is Professor Bot. I will hold a conversation with you. "
-        "Send /cancel to stop talking to me.\n\n"
-        "Are you a boy or a girl?",
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard,
-            one_time_keyboard=True,
-            input_field_placeholder="Boy or Girl?",
-        ),
-    )
-
-
-def main():
-    print("Bot is running")
-
-    book.isImported()
-
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    start_handler = CommandHandler("start", start)
-    application.add_handler(start_handler)
-
-    book_handler = CommandHandler("book", book.book)
-    application.add_handler(book_handler)
-
-    application.run_polling()
-
-
-if __name__ == "__main__":
-    main()
-
-'''
-
-
-#!/usr/bin/env python
-# pylint: disable=unused-argument, wrong-import-position
-# This program is dedicated to the public domain under the CC0 license.
-
-"""
-First, a few callback functions are defined. Then, those functions are passed to
-the Application and registered at their respective places.
-Then, the bot is started and runs until we press Ctrl-C on the command line.
-
-Usage:
-Example of a bot-user conversation using ConversationHandler.
-Send /start to initiate the conversation.
-Press Ctrl-C on the command line or send a signal to the process to stop the
-bot.
-"""
-
+# import libraries
 import os
 import logging
-import book
-
 from dotenv import load_dotenv
+from datetime import datetime
 
-from telegram import __version__ as TG_VER
+# aiogram module
+from aiogram import Bot, Dispatcher, types
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters import Text
+from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.utils import executor
 
-try:
-    from telegram import __version_info__
-except ImportError:
-    __version_info__ = (0, 0, 0, 0, 0)  # type: ignore[assignment]
 
-if __version_info__ < (20, 0, 0, "alpha", 5):
-    raise RuntimeError(
-        f"This example is not compatible with your current PTB version {TG_VER}. To view the "
-        f"{TG_VER} version of this example, "
-        f"visit https://docs.python-telegram-bot.org/en/v{TG_VER}/examples.html"
-    )
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
-from telegram.ext import (
-    ApplicationBuilder,
-    Application,
-    CommandHandler,
-    ContextTypes,
-    ConversationHandler,
-    MessageHandler,
-    filters,
+# keyboards.py
+from keyboards import (
+    MAIN_MENU_INLINE_KEYBOARD,
+    VEHICLE_TYPE_KEYBOARD,
+    PAYMENT_MODE_KEYBOARD,
+    REMOVE_KEYBOARD,
 )
 
-# Enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+
+# messages.py
+from messages import (
+    MSG_MAIN_MENU,
+    MSG_HELP_MENU,
+    MSG_BOOKING_CONFIRMED,
+    MSG_BOOKING_STARTED,
+    MSG_BOOKING_CANCELLED,
+    MSG_FEATURE_COMING_SOON,
 )
-logger = logging.getLogger(__name__)
-
-(
-    VEHICLE,
-    PRICING,
-    CONFIRM,
-    PAYMENT,
-) = range(4)
 
 
+# database.py
+from database import getUserBookingHistory, insertIntoDataBase
+
+
+# logger
+logging.basicConfig(level=logging.INFO)
+
+
+# bot token
 load_dotenv()
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 
-BOOKING_DETAILS = {}
+# bot setup
+bot = Bot(token=BOT_TOKEN)
+storage = MemoryStorage()
+dp = Dispatcher(bot, storage=storage)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Starts the conversation and asks the user about their vehicle."""
-    reply_keyboard = [["Auto", "Mini", "Sedan", "SUV"]]
 
-    user = update.message.from_user
+# states
+class Form(StatesGroup):
+    booking_time = State()
+    pickup = State()
+    destination = State()
+    vehicle = State()
+    payment = State()
+    fare = State()
 
-    logger.info("%s started chat", user.first_name)
+    name = State()
+    age = State()
+    gender = State()
 
-    await update.message.reply_text(
-        "Hi!" "Send /cancel to stop booking.\n\n" "Select vehicle to book.",
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard,
-            one_time_keyboard=True,
-            input_field_placeholder="Auto, Mini, Sedan or SUV?",
-        ),
+
+# global variables
+USER_ID = ""
+USER_FULL_NAME = ""
+
+
+# /start
+@dp.message_handler(commands="start")
+async def cmd_start(message: types.Message):
+    global USER_ID, USER_FULL_NAME
+
+    USER_ID = message.from_id
+    USER_FULL_NAME = message.from_user.full_name
+
+    logging.info("%d - %s - chat started by user", USER_ID, USER_FULL_NAME)
+
+    await message.reply(MSG_MAIN_MENU, reply_markup=MAIN_MENU_INLINE_KEYBOARD)
+
+
+# /cancel
+@dp.message_handler(state="*", commands="cancel")
+@dp.message_handler(Text(equals="cancel", ignore_case=True), state="*")
+async def cancel_handler(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+
+    if current_state == None:
+        return
+
+    logging.info(
+        "%d - %s - booking process cancelled by user from state - %r",
+        message.from_id,
+        message.from_user.full_name,
+        current_state,
     )
 
-    return VEHICLE
+    await message.reply(MSG_BOOKING_CANCELLED, reply_markup=MAIN_MENU_INLINE_KEYBOARD)
+
+    await state.finish()
 
 
-async def vehicle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Select vehicle type."""
-    reply_keyboard = [["Proceed", "Cancel"]]
+@dp.callback_query_handler(
+    text=["book_ride", "booking_history", "settings", "get_help"]
+)
+async def main_menu_callback(call: types.CallbackQuery, state: FSMContext):
+    global USER_ID, USER_FULL_NAME
 
-    user = update.message.from_user
-    logger.info("%s vehicle: %s", user.first_name, update.message.text)
+    USER_ID = call.message.chat.id
+    USER_FULL_NAME = ""
 
-    BOOKING_DETAILS[vehicle] = update.message.text
+    # set USER_FULL_NAME
+    if call.message.chat.first_name and call.message.chat.last_name:
+        USER_FULL_NAME = (
+            call.message.chat.first_name + " " + call.message.chat.last_name
+        )
+    elif call.message.chat.first_name:
+        USER_FULL_NAME += call.message.chat.first_name
+    elif call.message.chat.first_name:
+        USER_FULL_NAME += call.message.chat.last_name
 
-    await update.message.reply_text(
-        "Your total amount will be: Rs. 100",
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard,
-            one_time_keyboard=True,
-            input_field_placeholder="Proceed or Cancel",
-        ),
+    # book_ride
+    if call.data == "book_ride":
+        now = datetime.now()
+        curr_time = now.strftime("%d/%m/%Y %H:%M:%S")
+
+        async with state.proxy() as data:
+            data["booking_time"] = curr_time
+
+        logging.info("%d - %s - chat started by user", USER_ID, USER_FULL_NAME)
+
+        await call.message.answer(MSG_BOOKING_STARTED, reply_markup=REMOVE_KEYBOARD)
+
+        await Form.pickup.set()
+
+    # booking_history
+    if call.data == "booking_history":
+        BOOKING_HISTORY = getUserBookingHistory(USER_ID)
+
+        logging.info("%d - %s - booking history viewed by user", USER_ID, USER_FULL_NAME)
+
+        await call.message.answer(
+            BOOKING_HISTORY, reply_markup=MAIN_MENU_INLINE_KEYBOARD
+        )
+
+    # settings
+    if call.data == "settings":
+        logging.info("%d - %s - settings changed by user", USER_ID, USER_FULL_NAME)
+
+        await call.message.answer(
+            MSG_FEATURE_COMING_SOON, reply_markup=MAIN_MENU_INLINE_KEYBOARD
+        )
+
+    # get_help
+    if call.data == "get_help":
+        logging.info("%d - %s - help taken by user", USER_ID, USER_FULL_NAME)
+
+        await call.message.answer(MSG_HELP_MENU, reply_markup=MAIN_MENU_INLINE_KEYBOARD)
+
+    await call.answer()
+
+
+# pickup location
+@dp.message_handler(state=Form.pickup, content_types=["location"])
+async def pickup(message: types.Message, state: FSMContext):
+    pickup_latitude = message.location.latitude
+    pickup_longitude = message.location.longitude
+
+    async with state.proxy() as data:
+        data["pickup"] = [pickup_latitude, pickup_longitude]
+
+    logging.info(
+        "%d - %s - user pickup location - latitute: %f - longitude: %f",
+        message.from_id,
+        message.from_user.full_name,
+        pickup_latitude,
+        pickup_longitude,
     )
 
-    return PRICING
+    await message.answer("Great. Now send your destination")
+
+    await Form.destination.set()
 
 
-async def pricing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Show amount and booking details."""
-    reply_keyboard = [["Cash", "Online"]]
+# destination location
+@dp.message_handler(state=Form.destination, content_types=["location"])
+async def destination(message: types.Message, state: FSMContext):
+    destination_latitude = message.location.latitude
+    destination_longitude = message.location.longitude
 
-    user = update.message.from_user
-    logger.info("%s pricing: %s", user.first_name, update.message.text)
+    async with state.proxy() as data:
+        data["destination"] = [destination_latitude, destination_longitude]
 
-    USER_DECISION = update.message.text
+    logging.info(
+        "%d - %s - user destination - latitute: %f - longitude: %f",
+        message.from_id,
+        message.from_user.full_name,
+        destination_latitude,
+        destination_longitude,
+    )
 
-    if (USER_DECISION) == "Proceed":
-        await update.message.reply_text(
-            "select payment mode.",
-            reply_markup=ReplyKeyboardMarkup(
-                reply_keyboard,
-                one_time_keyboard=True,
-                input_field_placeholder="Cash or Online",
+    await message.answer("Select your vehicle type")
+
+    await message.answer("Select your vehicle type", reply_markup=VEHICLE_TYPE_KEYBOARD)
+
+    await Form.vehicle.set()
+
+
+# invalid input for vehicle type
+@dp.message_handler(
+    lambda message: message.text not in ["Auto", "Mini", "Sedan", "SUV"],
+    state=Form.vehicle,
+)
+async def vehicle_invalid(message: types.Message):
+    return await message.reply(
+        "Invalid vehicle type. Choose your vehicle type from the keyboard."
+    )
+
+
+# vehicle type
+@dp.message_handler(state=Form.vehicle)
+async def vehicle(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        generated_fare = round(
+            1000
+            * (
+                abs(data["pickup"][1] - data["destination"][1])
+                + abs(data["pickup"][0] - data["destination"][0])
             ),
-        )
-        return PAYMENT
-
-    elif (USER_DECISION) == "Cancel":
-        print("in Cancel")
-        # CommandHandler("cancel", cancel)
-
-        # return ConversationHandler.END
-        # return CONFIRM
-
-
-async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Select payment mode."""
-
-    user = update.message.from_user
-    # photo_file = await update.message.photo[-1].get_file()
-    # await photo_file.download_to_drive("user_photo.jpg")
-    logger.info("%s payment: %s", user.first_name, update.message.text)
-
-    selected_payment_mode = update.message.text
-
-    # print(selected_payment_mode)
-    # print(selected_payment_mode.lower() == "online")
-    # print(selected_payment_mode.lower() == "Cash")
-
-    if (selected_payment_mode) == "Online":
-        print("Online payment selected.")
-        await update.message.reply_text(
-            "Online payment selected.",
-            reply_markup=ReplyKeyboardRemove(),
+            2,
         )
 
-    elif (selected_payment_mode) == "Cash":
-        print("Cash payment selected.")
+        data["vehicle"] = message.text
+        data["fare"] = generated_fare
 
-        OUTPUT_TEXT = """
-You have selected Cash mode. Pay the driver once you reach your destination.
-"""
-
-        await update.message.reply_text(
-            OUTPUT_TEXT,
-            reply_markup=ReplyKeyboardRemove(),
-        )
-
-
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Cancels and ends the conversation."""
-    user = update.message.from_user
-    logger.info("User %s canceled the conversation.", user.first_name)
-    await update.message.reply_text(
-        "Bye! I hope we can talk again some day.", reply_markup=ReplyKeyboardRemove()
+    logging.info(
+        "%d - %s - user vehicle type - %s",
+        message.from_id,
+        message.from_user.full_name,
+        message.text,
     )
 
-    return ConversationHandler.END
-
-
-def main() -> None:
-    """Run the bot."""
-    # Create the Application and pass it your bot's token.
-    application = Application.builder().token(BOT_TOKEN).build()
-
-    # Add conversation handler with the states GENDER, PHOTO, LOCATION and BIO
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
-        states={
-            VEHICLE: [
-                MessageHandler(filters.Regex("^(Auto|Mini|Sedan|SUV)$"), vehicle)
-            ],
-            PRICING: [
-                MessageHandler(filters.Regex("^(Proceed|Cancel)$"), pricing),
-            ],
-            PAYMENT: [
-                MessageHandler(filters.Regex("^(Cash|Online)$"), payment),
-            ],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
+    text = (
+        "Your generated fare is Rs. " + str(generated_fare) + "\n\nSelect payment mode"
     )
 
-    application.add_handler(conv_handler)
+    await message.answer(text, reply_markup=PAYMENT_MODE_KEYBOARD)
 
-    # Run the bot until the user presses Ctrl-C
-    application.run_polling()
+    await Form.payment.set()
+
+
+# invalid input for payment mode
+@dp.message_handler(
+    lambda message: message.text not in ["Cash", "Online"], state=Form.payment
+)
+async def payment_invalid(message: types.Message):
+    return await message.reply(
+        "Invalid payment mode. Choose your payment mode from the keyboard."
+    )
+
+
+# payment mode
+@dp.message_handler(state=Form.payment)
+async def payment(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data["payment"] = message.text
+
+    logging.info(
+        "%d - %s - user payment mode - %s",
+        message.from_id,
+        message.from_user.full_name,
+        message.text,
+    )
+
+    await message.answer(MSG_BOOKING_CONFIRMED, reply_markup=REMOVE_KEYBOARD)
+
+    BOOKING_SUMMARY = (
+        "Your booking summary\n"
+        + "\nBooking Time: \t "
+        + data["booking_time"]
+        + "\nDestination: \n "
+        + "\t\t\t\tlat: "
+        + str(round(data["destination"][0], 4))
+        + "\t\t\t\tlong: "
+        + str(round(data["destination"][1], 4))
+        + "\nPickup: \n "
+        + "\t\t\t\tlat: "
+        + str(round(data["pickup"][0], 4))
+        + "\t\t\t\tlong: "
+        + str(round(data["pickup"][1], 4))
+        + "\nVehicle: \t "
+        + data["vehicle"]
+        + "\nPayment Mode: \t "
+        + data["payment"]
+        + "\nFare: \t "
+        + str(data["fare"])
+    )
+
+    data = {
+        "USER_ID": USER_ID,
+        "USER_FULL_NAME": USER_FULL_NAME,
+        "PICKUP_LATITUDE": data["pickup"][0],
+        "PICKUP_LONGITUDE": data["pickup"][1],
+        "DESTINATION_LATITUDE": data["destination"][0],
+        "DESTINATION_LONGITUDE": data["destination"][1],
+        "BOOKING_TIME": data["booking_time"],
+        "VEHICLE_TYPE": data["vehicle"],
+        "PAYMENT_MODE": data["payment"],
+        "FARE": data["fare"],
+    }
+
+    insertIntoDataBase(data)
+
+    await message.answer(BOOKING_SUMMARY, reply_markup=MAIN_MENU_INLINE_KEYBOARD)
+
+    await state.finish()
 
 
 if __name__ == "__main__":
-    main()
+    executor.start_polling(dp, skip_updates=True)
