@@ -492,7 +492,7 @@ async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def get_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = """
-Need some help? 
+Need more help? 
 
 No worries! Our 🤖bot is here to assist you. 
 Simply type /help to see a list of available commands. 
