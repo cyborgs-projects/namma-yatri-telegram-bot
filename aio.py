@@ -258,7 +258,7 @@ async def cmd_start(message: types.Message):
 
 
 @dp.callback_query_handler(
-    text=["book_ride", "booking_history", "settings", "get_help", "cancel"]
+    text=["book_ride", "booking_history", "settings", "get_help"]
 )
 async def main_menu_callback(call: types.CallbackQuery, state: FSMContext):
     global USER_ID
@@ -304,25 +304,6 @@ async def main_menu_callback(call: types.CallbackQuery, state: FSMContext):
 
         await call.message.answer(MSG_HELP_MENU, reply_markup=MAIN_MENU_INLINE_KEYBOARD)
 
-    if call.data == "cancel":
-        print("cancel_button")
-
-        current_state = await state.get_state()
-        # if current_state is None:
-        #     return
-
-        logging.info(
-            "Booking process cancelled by user %d - %s from state - %r",
-            call.message.from_id,
-            call.message.from_user.full_name,
-            current_state,
-        )
-
-        await state.finish()
-        await call.message.reply(
-            "Booking process is cancelled", reply_markup=MAIN_MENU_INLINE_KEYBOARD
-        )
-
     await call.answer()
 
 
@@ -363,10 +344,12 @@ async def book_ride(message: types.Message, state: FSMContext):
     await message.answer(MSG_BOOKING_STARTED)
 
 
-@dp.message_handler(state=Form.destination)
+@dp.message_handler(state=Form.destination, content_types=["location"])
 async def destination(message: types.Message, state: FSMContext):
     destination_latitude = message.location.latitude
     destination_longitude = message.location.longitude
+
+
 
     async with state.proxy() as data:
         data["destination"] = [destination_latitude, destination_longitude]
@@ -384,7 +367,7 @@ async def destination(message: types.Message, state: FSMContext):
     await message.answer("Great. Now send your pickup location")
 
 
-@dp.message_handler(state=Form.pickup)
+@dp.message_handler(state=Form.pickup, content_types=["location"])
 async def pickup(message: types.Message, state: FSMContext):
     pickup_latitude = message.location.latitude
     pickup_longitude = message.location.longitude
