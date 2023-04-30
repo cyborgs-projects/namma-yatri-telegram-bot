@@ -1,55 +1,29 @@
-import sqlite3
+import pymongo
+import os
+from dotenv import load_dotenv
 
-
+# messages.py
 from messages import MSG_NO_BOOKING_HISTORY
 
 
-def createTableIfNotExists():
-    conn = sqlite3.connect("ride_history.db")
-    c = conn.cursor()
-    c.execute(
-        """
-CREATE TABLE IF NOT EXISTS RIDE_HISTORY (
-    RIDE_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-    USER_ID INT NOT NULL,
-    USER_FULL_NAME TEXT NOT NULL,
-    PICKUP_LATITUDE REAL NOT NULL,
-    PICKUP_LONGITUDE REAL NOT NULL,
-    DESTINATION_LATITUDE REAL NOT NULL,
-    DESTINATION_LONGITUDE REAL NOT NULL,
-    BOOKING_TIME TEXT NOT NULL,
-    VEHICLE_TYPE TEXT NOT NULL,
-    PAYMENT_MODE TEXT NOT NULL,
-    FARE INT NOT NULL
-);
-"""
-    )
-    conn.commit()
-    conn.close()
+load_dotenv()
+MONGO_URI = os.environ.get("MONGO_URI")
+
+
+myclient = pymongo.MongoClient(MONGO_URI)
+mydb = myclient["rides_db"]
+mycol = mydb["rides_history"]
 
 
 def insertIntoDataBase(data):
-    createTableIfNotExists()
-
-    conn = sqlite3.connect("ride_history.db")
-    c = conn.cursor()
-
-    conn.execute(
-        "INSERT INTO RIDE_HISTORY (USER_ID, USER_FULL_NAME, PICKUP_LATITUDE, PICKUP_LONGITUDE, DESTINATION_LATITUDE, DESTINATION_LONGITUDE, BOOKING_TIME, VEHICLE_TYPE, PAYMENT_MODE, FARE) VALUES (:USER_ID, :USER_FULL_NAME, :PICKUP_LATITUDE, :PICKUP_LONGITUDE, :DESTINATION_LATITUDE, :DESTINATION_LONGITUDE, :BOOKING_TIME, :VEHICLE_TYPE, :PAYMENT_MODE, :FARE)",
-        data,
-    )
-
-    conn.commit()
-    conn.close()
+    x = mycol.insert_one(data)
+    print("x.inserted_id")
+    print(x.inserted_id)
 
 
 def getUserBookingHistory(USER_ID):
-    createTableIfNotExists()
-
-    conn = sqlite3.connect("ride_history.db")
-    c = conn.cursor()
-    c.execute("SELECT * FROM RIDE_HISTORY WHERE USER_ID=?", (USER_ID,))
-    rides = c.fetchall()
+    myquery = { "USER_ID": USER_ID }
+    rides = mycol.find(myquery)
 
     if not rides:
         return MSG_NO_BOOKING_HISTORY
@@ -63,25 +37,26 @@ def getUserBookingHistory(USER_ID):
             "\nRide Number: \t "
             + str(ride_number)
             + "\nBooking Time: \t "
-            + str(ride[7])
+            + str(ride["BOOKING_TIME"])
             + "\nDestination: \n "
             + "\t\t\t\tlat: "
-            + str(round(ride[5], 4))
+            + str(round(ride["DESTINATION_LATITUDE"], 4))
             + "\t\t\t\tlong: "
-            + str(round(ride[6], 4))
+            + str(round(ride["DESTINATION_LONGITUDE"], 4))
             + "\nPickup: \n "
             + "\t\t\t\tlat: "
-            + str(round(ride[3], 4))
+            + str(round(ride["PICKUP_LATITUDE"], 4))
             + "\t\t\t\tlong: "
-            + str(round(ride[4], 4))
+            + str(round(ride["PICKUP_LONGITUDE"], 4))
             + "\nVehicle: \t "
-            + str(ride[8])
+            + str(ride["VEHICLE_TYPE"])
             + "\nPayment Mode: \t "
-            + str(ride[9])
+            + str(ride["PAYMENT_MODE"])
             + "\nFare: \t "
-            + str(ride[10])
+            + str(ride["FARE"])
             + "\n"
         )
+
 
     BOOKING_HISTORY += "\nThank you for choosing Namma Yatri! 😊"
 
