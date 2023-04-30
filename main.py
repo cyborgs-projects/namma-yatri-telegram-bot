@@ -204,8 +204,6 @@ async def destination(message: types.Message, state: FSMContext):
         destination_longitude,
     )
 
-    await message.answer("Select your vehicle type")
-
     await message.answer("Select your vehicle type", reply_markup=VEHICLE_TYPE_KEYBOARD)
 
     await Form.vehicle.set()

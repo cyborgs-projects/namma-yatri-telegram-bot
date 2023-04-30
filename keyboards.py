@@ -3,12 +3,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
 main_menu_button1 = InlineKeyboardButton(text="Book a Ride", callback_data="book_ride")
-main_menu_button2 = InlineKeyboardButton(
-    text="Booking History", callback_data="booking_history"
-)
-main_menu_button3 = InlineKeyboardButton(
-    text="Change Settings", callback_data="settings"
-)
+main_menu_button2 = InlineKeyboardButton(text="Booking History", callback_data="booking_history")
+main_menu_button3 = InlineKeyboardButton(text="Change Settings", callback_data="settings")
 main_menu_button4 = InlineKeyboardButton(text="Get Help", callback_data="get_help")
 MAIN_MENU_INLINE_KEYBOARD = (
     InlineKeyboardMarkup()
