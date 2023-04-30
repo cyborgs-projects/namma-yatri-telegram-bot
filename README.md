@@ -27,7 +27,7 @@ In summary, our Telegram bot solution offers a user-friendly, scalable, and conv
 
 1. Shreyash Halge -  [LinkedIn](https://www.linkedin.com/in/shreyash-halge/) | [GitHub](https://github.com/noblecoder11)
 
-2. Darshankumar Bhandari -  [LinkedIn](https://www.linkedin.com/in/darshan9405/) | [GitHub](https://github.com/darshan9405)
+2. Darshan Bhandari -  [LinkedIn](https://www.linkedin.com/in/darshan9405/) | [GitHub](https://github.com/darshan9405)
 
 3. Aditya Thorat -  [LinkedIn](https://www.linkedin.com/in/adityathorat/) | [GitHub](https://github.com/thorataditya14)
 
@@ -52,6 +52,8 @@ pip install -r requirements.txt
 ```
 python main.py
 ```
+
+---
 
 ### note
 
