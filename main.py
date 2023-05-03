@@ -34,7 +34,7 @@ from messages import (
 
 
 # database.py
-from database import getUserBookingHistory, insertIntoDataBase
+from database import getUserBookingHistory, insertIntoDataBase, logIntoDataBase
 
 
 # logger
@@ -78,8 +78,21 @@ async def cmd_start(message: types.Message):
 
     USER_ID = message.from_id
     USER_FULL_NAME = message.from_user.full_name
+    LOG_ACTION = "chat started by user"
 
-    logging.info("%d - %s - chat started by user", USER_ID, USER_FULL_NAME)
+    now = datetime.now()
+    curr_time = now.strftime("%Y/%m/%d %H:%M:%S")
+
+    logData = {
+        "user_id": USER_ID,
+        "user_full_name": USER_FULL_NAME,
+        "action": LOG_ACTION,
+        "createdAt": curr_time,
+    }
+
+    logIntoDataBase(logData)
+
+    logging.info("%d - %s - %s", USER_ID, USER_FULL_NAME, LOG_ACTION)
 
     await message.reply(MSG_MAIN_MENU, reply_markup=MAIN_MENU_INLINE_KEYBOARD)
 
@@ -93,10 +106,27 @@ async def cancel_handler(message: types.Message, state: FSMContext):
     if current_state == None:
         return
 
+    USER_ID = message.from_id
+    USER_FULL_NAME = message.from_user.full_name
+    LOG_ACTION = "booking process cancelled by user from state"
+
+    now = datetime.now()
+    curr_time = now.strftime("%Y/%m/%d %H:%M:%S")
+
+    logData = {
+        "user_id": USER_ID,
+        "user_full_name": USER_FULL_NAME,
+        "action": LOG_ACTION,
+        "createdAt": curr_time,
+    }
+
+    logIntoDataBase(logData)
+
     logging.info(
-        "%d - %s - booking process cancelled by user from state - %r",
-        message.from_id,
-        message.from_user.full_name,
+        "%d - %s - %s - %r",
+        USER_ID,
+        USER_FULL_NAME,
+        LOG_ACTION,
         current_state,
     )
 
@@ -132,7 +162,20 @@ async def main_menu_callback(call: types.CallbackQuery, state: FSMContext):
         async with state.proxy() as data:
             data["booking_time"] = curr_time
 
-        logging.info("%d - %s - chat started by user", USER_ID, USER_FULL_NAME)
+        LOG_ACTION = "chat started by user"
+        now = datetime.now()
+        curr_time = now.strftime("%Y/%m/%d %H:%M:%S")
+
+        logData = {
+            "user_id": USER_ID,
+            "user_full_name": USER_FULL_NAME,
+            "action": LOG_ACTION,
+            "createdAt": curr_time,
+        }
+
+        logIntoDataBase(logData)
+
+        logging.info("%d - %s - %s", USER_ID, USER_FULL_NAME, LOG_ACTION)
 
         await call.message.answer(MSG_BOOKING_STARTED, reply_markup=REMOVE_KEYBOARD)
 
@@ -142,7 +185,21 @@ async def main_menu_callback(call: types.CallbackQuery, state: FSMContext):
     if call.data == "booking_history":
         BOOKING_HISTORY = getUserBookingHistory(USER_ID)
 
-        logging.info("%d - %s - booking history viewed by user", USER_ID, USER_FULL_NAME)
+        now = datetime.now()
+        curr_time = now.strftime("%Y/%m/%d %H:%M:%S")
+
+        LOG_ACTION = "booking history viewed by user"
+
+        logData = {
+            "user_id": USER_ID,
+            "user_full_name": USER_FULL_NAME,
+            "action": LOG_ACTION,
+            "createdAt": curr_time,
+        }
+
+        logIntoDataBase(logData)
+
+        logging.info("%d - %s - %s", USER_ID, USER_FULL_NAME, LOG_ACTION)
 
         await call.message.answer(
             BOOKING_HISTORY, reply_markup=MAIN_MENU_INLINE_KEYBOARD
@@ -150,7 +207,21 @@ async def main_menu_callback(call: types.CallbackQuery, state: FSMContext):
 
     # settings
     if call.data == "settings":
-        logging.info("%d - %s - settings changed by user", USER_ID, USER_FULL_NAME)
+        now = datetime.now()
+        curr_time = now.strftime("%Y/%m/%d %H:%M:%S")
+
+        LOG_ACTION = "settings changed by user"
+
+        logData = {
+            "user_id": USER_ID,
+            "user_full_name": USER_FULL_NAME,
+            "action": LOG_ACTION,
+            "createdAt": curr_time,
+        }
+
+        logIntoDataBase(logData)
+
+        logging.info("%d - %s - %s", USER_ID, USER_FULL_NAME, LOG_ACTION)
 
         await call.message.answer(
             MSG_FEATURE_COMING_SOON, reply_markup=MAIN_MENU_INLINE_KEYBOARD
@@ -158,7 +229,21 @@ async def main_menu_callback(call: types.CallbackQuery, state: FSMContext):
 
     # get_help
     if call.data == "get_help":
-        logging.info("%d - %s - help taken by user", USER_ID, USER_FULL_NAME)
+        now = datetime.now()
+        curr_time = now.strftime("%Y/%m/%d %H:%M:%S")
+
+        LOG_ACTION = "help taken by user"
+
+        logData = {
+            "user_id": USER_ID,
+            "user_full_name": USER_FULL_NAME,
+            "action": LOG_ACTION,
+            "createdAt": curr_time,
+        }
+
+        logIntoDataBase(logData)
+
+        logging.info("%d - %s - %s", USER_ID, USER_FULL_NAME, LOG_ACTION)
 
         await call.message.answer(MSG_HELP_MENU, reply_markup=MAIN_MENU_INLINE_KEYBOARD)
 
@@ -174,10 +259,29 @@ async def pickup(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["pickup"] = [pickup_latitude, pickup_longitude]
 
+    now = datetime.now()
+    curr_time = now.strftime("%Y/%m/%d %H:%M:%S")
+
+    USER_ID = message.from_id
+    USER_FULL_NAME = message.from_user.full_name
+    LOG_ACTION = "user pickup location"
+
+    logData = {
+        "user_id": USER_ID,
+        "user_full_name": USER_FULL_NAME,
+        "action": LOG_ACTION,
+        "pickup_latitude": pickup_latitude,
+        "pickup_longitude": pickup_longitude,
+        "createdAt": curr_time,
+    }
+
+    logIntoDataBase(logData)
+
     logging.info(
-        "%d - %s - user pickup location - latitute: %f - longitude: %f",
-        message.from_id,
-        message.from_user.full_name,
+        "%d - %s - %s - latitute: %f - longitude: %f",
+        USER_ID,
+        USER_FULL_NAME,
+        LOG_ACTION,
         pickup_latitude,
         pickup_longitude,
     )
@@ -196,10 +300,29 @@ async def destination(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["destination"] = [destination_latitude, destination_longitude]
 
+    now = datetime.now()
+    curr_time = now.strftime("%Y/%m/%d %H:%M:%S")
+
+    USER_ID = message.from_id
+    USER_FULL_NAME = message.from_user.full_name
+    LOG_ACTION = "user destination"
+
+    logData = {
+        "user_id": USER_ID,
+        "user_full_name": USER_FULL_NAME,
+        "action": LOG_ACTION,
+        "destination_latitude": destination_latitude,
+        "destination_longitude": destination_longitude,
+        "createdAt": curr_time,
+    }
+
+    logIntoDataBase(logData)
+
     logging.info(
-        "%d - %s - user destination - latitute: %f - longitude: %f",
-        message.from_id,
-        message.from_user.full_name,
+        "%d - %s - %s - latitute: %f - longitude: %f",
+        USER_ID,
+        USER_FULL_NAME,
+        LOG_ACTION,
         destination_latitude,
         destination_longitude,
     )
@@ -236,11 +359,31 @@ async def vehicle(message: types.Message, state: FSMContext):
         data["vehicle"] = message.text
         data["fare"] = generated_fare
 
+    now = datetime.now()
+    curr_time = now.strftime("%Y/%m/%d %H:%M:%S")
+
+
+    vehicle_type=message.text
+    USER_ID = message.from_id
+    USER_FULL_NAME = message.from_user.full_name
+    LOG_ACTION = "user vehicle type"
+
+    logData = {
+        "user_id": USER_ID,
+        "user_full_name": USER_FULL_NAME,
+        "action": LOG_ACTION,
+        "vehicle_type": vehicle_type,
+        "createdAt": curr_time,
+    }
+
+    logIntoDataBase(logData)
+
     logging.info(
-        "%d - %s - user vehicle type - %s",
+        "%d - %s - %s - %s",
         message.from_id,
         message.from_user.full_name,
-        message.text,
+        LOG_ACTION,
+        vehicle_type,
     )
 
     text = (
@@ -268,11 +411,28 @@ async def payment(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data["payment"] = message.text
 
+    now = datetime.now()
+    curr_time = now.strftime("%Y/%m/%d %H:%M:%S")
+
+    payment_mode= message.text
+    LOG_ACTION="user payment mode"
+
+    logData = {
+        "user_id": USER_ID,
+        "user_full_name": USER_FULL_NAME,
+        "action": LOG_ACTION,
+        "payment_mode": payment_mode,
+        "createdAt": curr_time,
+    }
+
+    logIntoDataBase(logData)
+
     logging.info(
-        "%d - %s - user payment mode - %s",
+        "%d - %s - %s - %s",
         message.from_id,
         message.from_user.full_name,
-        message.text,
+        LOG_ACTION,
+        payment_mode,
     )
 
     await message.answer(MSG_BOOKING_CONFIRMED, reply_markup=REMOVE_KEYBOARD)

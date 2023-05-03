@@ -13,19 +13,19 @@ MONGO_URI = os.environ.get("MONGO_URI")
 myclient = pymongo.MongoClient(MONGO_URI)
 mydb = myclient["rides_db"]
 mycol = mydb["rides_history"]
+mylog = mydb["log_history"]
+
 
 
 def insertIntoDataBase(data):
-    x = mycol.insert_one(data)
-    print("x.inserted_id")
-    print(x.inserted_id)
+    mycol.insert_one(data)
 
 
 def getUserBookingHistory(USER_ID):
-    myquery = { "USER_ID": USER_ID }
+    myquery = {"USER_ID": USER_ID}
     rides = mycol.find(myquery)
 
-    if not rides:
+    if rides == None:
         return MSG_NO_BOOKING_HISTORY
 
     BOOKING_HISTORY = "Your ride history with Namma Yatri! 🚗💨\n"
@@ -57,7 +57,10 @@ def getUserBookingHistory(USER_ID):
             + "\n"
         )
 
-
     BOOKING_HISTORY += "\nThank you for choosing Namma Yatri! 😊"
 
     return BOOKING_HISTORY
+
+
+def logIntoDataBase(logData):
+    mylog.insert_one(logData)
