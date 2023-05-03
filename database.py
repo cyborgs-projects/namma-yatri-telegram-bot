@@ -25,13 +25,15 @@ def getUserBookingHistory(USER_ID):
     myquery = {"USER_ID": USER_ID}
     rides = mycol.find(myquery)
 
-    if rides == None:
+    rides = list(rides)
+    if len(rides) == 0:
         return MSG_NO_BOOKING_HISTORY
 
     BOOKING_HISTORY = "Your ride history with Namma Yatri! 🚗💨\n"
 
-    for i, ride in enumerate(rides):
-        ride_number = i + 1
+    ride_number = 0
+    for ride in rides:
+        ride_number = ride_number + 1
 
         BOOKING_HISTORY = BOOKING_HISTORY + (
             "\nRide Number: \t "

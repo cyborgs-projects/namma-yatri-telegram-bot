@@ -286,7 +286,7 @@ async def pickup(message: types.Message, state: FSMContext):
         pickup_longitude,
     )
 
-    await message.answer("Great. Now send your destination")
+    await message.answer("Great. Now send your Destination")
 
     await Form.destination.set()
 

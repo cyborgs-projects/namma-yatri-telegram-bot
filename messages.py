@@ -47,7 +47,11 @@ Ride booking process has started
 
 Type /cancel or cancel anytime to stop booking process
 
-Send your pickup location
+
+**share your location coordinates using "Send My current location" option under location in attachments
+
+
+Send your Pick-up location
 """
 
 
