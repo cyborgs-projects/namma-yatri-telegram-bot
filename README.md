@@ -29,7 +29,7 @@ In summary, our Telegram bot solution offers a user-friendly, scalable, and conv
 
 2. Darshan Bhandari -  [LinkedIn](https://www.linkedin.com/in/darshan9405/) | [GitHub](https://github.com/darshan9405)
 
-3. Aditya Thorat -  [LinkedIn](https://www.linkedin.com/in/adityathorat/) | [GitHub](https://github.com/thorataditya14)
+3. Aditya Thorat -  [LinkedIn](https://www.linkedin.com/in/adityathorat/) | [GitHub](https://github.com/thorataditya84)
 
 ### Chat with the bot
 
