@@ -37,7 +37,7 @@ In summary, our Telegram bot solution offers a user-friendly, scalable, and conv
 
 ### Demo video
 
-<https://drive.google.com/file/d/1t_V2RGfqpeyzUHVb9vc3HnWYC6N6n5gV/view>
+<https://www.youtube.com/watch?v=7Y179MHpRbs>
 
 ---
 
